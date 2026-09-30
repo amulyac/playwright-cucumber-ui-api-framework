@@ -1,0 +1,30 @@
+{
+  "name": "registration-bdd",
+  "version": "1.0.0",
+  "description": "Registration feature automation - Playwright + Cucumber BDD + TypeScript + POM",
+  "scripts": {
+    "setup": "npm install && npx playwright install",
+    "test": "cucumber-js",
+    "test:ui": "cucumber-js --tags \"not @api and not @hybrid\"",
+    "test:api": "cucumber-js --tags @api",
+    "test:hybrid": "cucumber-js --tags @hybrid",
+    "test:login": "cucumber-js --tags @login",
+    "test:dropdown": "cucumber-js --tags @dropdown",
+    "test:upload": "cucumber-js --tags @upload",
+    "test:storage": "cucumber-js --tags @storage",
+    "test:oop": "cucumber-js --tags @oop",
+    "test:smoke": "cucumber-js --tags @smoke",
+    "test:negative": "cucumber-js --tags @negative",
+    "test:random": "cucumber-js --order random",
+    "test:retry": "cucumber-js --retry 2",
+    "install:browsers": "playwright install"
+  },
+  "devDependencies": {
+    "@cucumber/cucumber": "^11.0.0",
+    "@playwright/test": "^1.48.0",
+    "@types/node": "^20.0.0",
+    "dotenv": "^16.4.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.0"
+  }
+}

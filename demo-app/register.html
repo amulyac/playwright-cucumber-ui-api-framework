@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Demo App - Register</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f6f8; display: flex; justify-content: center; padding: 40px 16px; }
+    .card { background: #fff; padding: 28px; border-radius: 10px; width: 100%; max-width: 420px; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+    h1 { margin-top: 0; font-size: 1.5rem; }
+    label { display: block; font-weight: 600; margin-top: 14px; }
+    input[type=text], input[type=email], input[type=password] { width: 100%; padding: 9px; margin-top: 4px; box-sizing: border-box; border: 1px solid #c4cbd3; border-radius: 6px; }
+    .error { color: #c62828; font-size: .85rem; min-height: 1em; margin-top: 3px; }
+    .terms { display: flex; gap: 8px; align-items: center; margin-top: 16px; font-weight: normal; }
+    button { margin-top: 20px; width: 100%; padding: 11px; background: #1565c0; color: #fff; border: 0; border-radius: 6px; font-size: 1rem; cursor: pointer; }
+    .success { color: #2e7d32; font-weight: 600; font-size: 1.1rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Create account</h1>
+
+    <form id="register-form" novalidate>
+      <label for="firstName">First name</label>
+      <input id="firstName" type="text" data-testid="first-name" />
+      <div class="error" data-testid="first-name-error"></div>
+
+      <label for="lastName">Last name</label>
+      <input id="lastName" type="text" data-testid="last-name" />
+      <div class="error" data-testid="last-name-error"></div>
+
+      <label for="email">Email</label>
+      <input id="email" type="email" data-testid="email" />
+      <div class="error" data-testid="email-error"></div>
+
+      <label for="password">Password</label>
+      <input id="password" type="password" data-testid="password" />
+      <div class="error" data-testid="password-error"></div>
+
+      <label for="confirmPassword">Confirm password</label>
+      <input id="confirmPassword" type="password" data-testid="confirm-password" />
+      <div class="error" data-testid="confirm-password-error"></div>
+
+      <label class="terms"><input type="checkbox" data-testid="terms" /> I accept the terms and conditions</label>
+      <div class="error" data-testid="terms-error"></div>
+
+      <button type="submit">Register</button>
+    </form>
+
+    <p class="success" data-testid="registration-success" hidden>Account created successfully</p>
+  </div>
+
+  <script>
+    const $ = (id) => document.querySelector(`[data-testid="${id}"]`);
+    // API field name -> UI test id
+    const FIELD_MAP = { firstName: 'first-name', lastName: 'last-name', email: 'email', password: 'password', acceptTerms: 'terms' };
+
+    document.getElementById('register-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const v = {
+        firstName: $('first-name').value.trim(),
+        lastName: $('last-name').value.trim(),
+        email: $('email').value.trim(),
+        password: $('password').value,
+        confirmPassword: $('confirm-password').value,
+        terms: $('terms').checked,
+      };
+
+      // 1) Client-side validation
+      const errors = {
+        'first-name': !v.firstName ? 'First name is required' : '',
+        'last-name': !v.lastName ? 'Last name is required' : '',
+        'email': !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email) ? 'Enter a valid email address' : '',
+        'password': v.password.length < 8 ? 'Password must be at least 8 characters' : '',
+        'confirm-password': v.password !== v.confirmPassword ? 'Passwords do not match' : '',
+        'terms': !v.terms ? 'You must accept the terms' : '',
+      };
+      let valid = true;
+      for (const [field, msg] of Object.entries(errors)) {
+        $(`${field}-error`).textContent = msg;
+        if (msg) valid = false;
+      }
+      if (!valid) return;
+
+      // 2) Server-side: call the registration API
+      try {
+        const res = await fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            firstName: v.firstName, lastName: v.lastName, email: v.email,
+            password: v.password, acceptTerms: v.terms,
+          }),
+        });
+        const body = await res.json();
+        if (res.status === 201) {
+          document.getElementById('register-form').hidden = true;
+          $('registration-success').hidden = false;
+        } else if (res.status === 409) {
+          $('email-error').textContent = body.message;
+        } else if (res.status === 400 && body.details) {
+          body.details.forEach((d) => { if (FIELD_MAP[d.field]) $(`${FIELD_MAP[d.field]}-error`).textContent = d.message; });
+        } else {
+          $('email-error').textContent = 'Something went wrong. Please try again.';
+        }
+      } catch {
+        $('email-error').textContent = 'Network error. Please try again.';
+      }
+    });
+  </script>
+</body>
+</html>

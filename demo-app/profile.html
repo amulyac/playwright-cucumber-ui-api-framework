@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Demo App - Profile</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f6f8; display: flex; justify-content: center; padding: 40px 16px; }
+    .card { background: #fff; padding: 28px; border-radius: 10px; width: 100%; max-width: 520px; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+    h1 { margin-top: 0; font-size: 1.5rem; }
+    h2 { font-size: 1.1rem; margin-top: 26px; border-top: 1px solid #e3e7eb; padding-top: 16px; }
+    label { display: block; font-weight: 600; margin-top: 14px; }
+    select, .dropdown-trigger { width: 100%; padding: 9px; margin-top: 4px; border: 1px solid #c4cbd3; border-radius: 6px; background: #fff; font-size: 1rem; text-align: left; cursor: pointer; }
+    .dropdown { position: relative; }
+    .dropdown-trigger::after { content: '▾'; float: right; }
+    .dropdown-list { position: absolute; left: 0; right: 0; margin: 2px 0 0; padding: 4px 0; list-style: none; background: #fff; border: 1px solid #c4cbd3; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,.1); z-index: 10; }
+    .dropdown-list li { padding: 8px 12px; cursor: pointer; }
+    .dropdown-list li:hover, .dropdown-list li[aria-selected="true"] { background: #e3f0fd; }
+    .error { color: #c62828; font-size: .9rem; min-height: 1em; margin-top: 6px; }
+    .success { color: #2e7d32; font-weight: 600; }
+    .admin { background: #fff8e1; border-radius: 6px; padding: 4px 14px; margin-top: 12px; }
+    button.primary { margin-top: 16px; padding: 10px 16px; background: #1565c0; color: #fff; border: 0; border-radius: 6px; cursor: pointer; }
+    button.secondary { margin-top: 26px; padding: 8px 14px; background: #eceff1; border: 0; border-radius: 6px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1 data-testid="welcome-message">Loading…</h1>
+    <p>Role: <strong data-testid="user-role"></strong></p>
+
+    <section class="admin" data-testid="admin-panel" hidden>
+      <h3>Admin panel</h3>
+      <p>Manage users and settings.</p>
+    </section>
+
+    <h2>Preferences</h2>
+    <label for="country">Country</label>
+    <select id="country" data-testid="country-select">
+      <option value="">Select a country</option>
+      <option value="uk">United Kingdom</option>
+      <option value="in">India</option>
+      <option value="us">United States</option>
+      <option value="au">Australia</option>
+    </select>
+
+    <label id="language-label">Preferred language</label>
+    <div class="dropdown">
+      <button type="button" class="dropdown-trigger" data-testid="language-dropdown"
+              aria-haspopup="listbox" aria-expanded="false" aria-labelledby="language-label">Select a language</button>
+      <ul class="dropdown-list" role="listbox" data-testid="language-dropdown-options" aria-labelledby="language-label" hidden>
+        <li role="option" aria-selected="false" data-value="en">English</li>
+        <li role="option" aria-selected="false" data-value="hi">Hindi</li>
+        <li role="option" aria-selected="false" data-value="te">Telugu</li>
+        <li role="option" aria-selected="false" data-value="es">Spanish</li>
+      </ul>
+    </div>
+
+    <button type="button" class="primary" data-testid="save-preferences">Save preferences</button>
+    <div class="error" role="alert" data-testid="preferences-error"></div>
+    <p class="success" data-testid="preferences-saved" hidden></p>
+
+    <h2>Profile picture</h2>
+    <label for="avatar">Upload a file (PNG, JPG or PDF, max 1 MB)</label>
+    <input id="avatar" type="file" data-testid="avatar-upload" accept=".png,.jpg,.jpeg,.pdf" />
+    <div class="error" role="alert" data-testid="upload-error"></div>
+    <p class="success" data-testid="upload-success" hidden></p>
+
+    <button type="button" class="secondary" data-testid="logout">Log out</button>
+  </div>
+
+  <script>
+    const $ = (id) => document.querySelector(`[data-testid="${id}"]`);
+
+    // ---- who am I (the page is only served with a valid session) ----
+    (async () => {
+      const res = await fetch('/api/auth/me');
+      if (res.status !== 200) { window.location.href = '/login'; return; }
+      const user = await res.json();
+      $('user-role').textContent = user.role;
+      $('admin-panel').hidden = user.role !== 'admin';
+      $('welcome-message').textContent = `Welcome, ${user.firstName}`;
+    })();
+
+    // ---- custom dropdown (button + listbox, not a <select>) ----
+    const trigger = $('language-dropdown');
+    const list = $('language-dropdown-options');
+    let selectedLanguage = '';
+    const setOpen = (open) => { list.hidden = !open; trigger.setAttribute('aria-expanded', String(open)); };
+
+    trigger.addEventListener('click', (e) => { e.stopPropagation(); setOpen(list.hidden); });
+    list.querySelectorAll('[role="option"]').forEach((option) => {
+      option.addEventListener('click', (e) => {
+        e.stopPropagation();
+        list.querySelectorAll('[role="option"]').forEach((o) => o.setAttribute('aria-selected', 'false'));
+        option.setAttribute('aria-selected', 'true');
+        selectedLanguage = option.textContent;
+        trigger.textContent = option.textContent;
+        setOpen(false);
+      });
+    });
+    document.addEventListener('click', () => setOpen(false));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setOpen(false); });
+
+    // ---- save preferences ----
+    $('save-preferences').addEventListener('click', () => {
+      const country = $('country-select');
+      const saved = $('preferences-saved');
+      const error = $('preferences-error');
+      saved.hidden = true;
+      error.textContent = '';
+      if (!country.value) { error.textContent = 'Please select a country'; return; }
+      if (!selectedLanguage) { error.textContent = 'Please select a language'; return; }
+      saved.textContent = `Preferences saved: ${country.selectedOptions[0].text}, ${selectedLanguage}`;
+      saved.hidden = false;
+    });
+
+    // ---- file upload with validation ----
+    const ALLOWED = ['png', 'jpg', 'jpeg', 'pdf'];
+    const MAX_BYTES = 1024 * 1024;
+    $('avatar-upload').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      const error = $('upload-error');
+      const success = $('upload-success');
+      error.textContent = '';
+      success.hidden = true;
+      if (!file) return;
+      const ext = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : '';
+      if (!ALLOWED.includes(ext)) { error.textContent = 'Only PNG, JPG or PDF files are allowed'; e.target.value = ''; return; }
+      if (file.size === 0) { error.textContent = 'The selected file is empty'; e.target.value = ''; return; }
+      if (file.size > MAX_BYTES) { error.textContent = 'File must be smaller than 1 MB'; e.target.value = ''; return; }
+      success.textContent = `Uploaded: ${file.name}`;
+      success.hidden = false;
+    });
+
+    // ---- logout ----
+    $('logout').addEventListener('click', async () => {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/login';
+    });
+  </script>
+</body>
+</html>

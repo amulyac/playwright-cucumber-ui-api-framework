@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Demo App - Log in</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f6f8; display: flex; justify-content: center; padding: 40px 16px; }
+    .card { background: #fff; padding: 28px; border-radius: 10px; width: 100%; max-width: 420px; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+    h1 { margin-top: 0; font-size: 1.5rem; }
+    label { display: block; font-weight: 600; margin-top: 14px; }
+    input { width: 100%; padding: 9px; margin-top: 4px; box-sizing: border-box; border: 1px solid #c4cbd3; border-radius: 6px; }
+    input[aria-invalid="true"] { border-color: #c62828; }
+    .error { color: #c62828; font-size: .85rem; min-height: 1em; margin-top: 3px; }
+    .form-error { background: #fdecea; color: #b71c1c; padding: 10px; border-radius: 6px; }
+    button { margin-top: 20px; width: 100%; padding: 11px; background: #1565c0; color: #fff; border: 0; border-radius: 6px; font-size: 1rem; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Log in</h1>
+    <div class="form-error" role="alert" data-testid="login-error" hidden></div>
+
+    <form id="login-form" novalidate>
+      <label for="email">Email</label>
+      <input id="email" type="email" data-testid="login-email" autocomplete="username" />
+      <div class="error" data-testid="login-email-error"></div>
+
+      <label for="password">Password</label>
+      <input id="password" type="password" data-testid="login-password" autocomplete="current-password" />
+      <div class="error" data-testid="login-password-error"></div>
+
+      <button type="submit">Log in</button>
+    </form>
+    <p>No account? <a href="/register">Create one</a></p>
+  </div>
+
+  <script>
+    const $ = (id) => document.querySelector(`[data-testid="${id}"]`);
+    const setFieldError = (field, message) => {
+      $(`login-${field}-error`).textContent = message;
+      $(`login-${field}`).setAttribute('aria-invalid', message ? 'true' : 'false');
+    };
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formError = $('login-error');
+      formError.hidden = true;
+      formError.textContent = '';
+
+      const email = $('login-email').value.trim();
+      const password = $('login-password').value;
+      setFieldError('email', email ? '' : 'Email is required');
+      setFieldError('password', password ? '' : 'Password is required');
+      if (!email || !password) return;
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        if (res.status === 200) { window.location.href = '/profile'; return; }
+        const body = await res.json();
+        if (res.status === 400 && body.details) {
+          body.details.forEach((d) => setFieldError(d.field, d.message));
+          return;
+        }
+        formError.textContent = body.message || 'Login failed';
+        formError.hidden = false;
+      } catch {
+        formError.textContent = 'Network error. Please try again.';
+        formError.hidden = false;
+      }
+    });
+  </script>
+</body>
+</html>
